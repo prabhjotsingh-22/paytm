@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
-require("dotenv").config(); // Load environment variables
+require("dotenv").config();
 
-mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log("Connected to MongoDB successfully"))
+    .catch(err => console.error("Failed to connect to MongoDB", err));
+
 
 const UserSchema = new mongoose.Schema({
     firstName: { 

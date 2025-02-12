@@ -1,6 +1,6 @@
 const express = require('express');
 const {z} = require('zod');
-const { User } = require('../db');
+const { User, Account } = require('../db');
 const { authMiddleware } = require('../middleware');
 const JWT_SECRET = require('../config');
 const jwt = require("jsonwebtoken");
@@ -14,7 +14,7 @@ const signupSchema = z.object({
         .max(50, "First name must not exceed 50 characters"),
     lastName: z.string()
         .trim()
-        .min(2, "Last name must be at least 2 characters long")
+        .min(2, "Last name must  be at least 2 characters long")
         .max(50, "Last name must not exceed 50 characters"),
     username: z.string()
         .trim()
@@ -28,24 +28,37 @@ router.post('/signup', async (req, res) => {
     const body = req.body;
     const {success} = signupSchema.safeParse(req.body);
     if(!success){
-        return res.json({
-            message: "Email already taken / Incorrect inputs"
+        return res.status(411).json({
+            message: "Error"
         })
     }
 
-    const user = User.findOne({
+    const existingUser = await User.findOne({
         username: body.username
     })
     
-    if (user._id) {
-        return res.json({
+    if(existingUser){
+        return res.status(411).json({
             message: "Email already taken / Incorrect inputs"
         })
     }
 
-    const dbUser = await User.create(body);
-    const token = JWT_SECRET.sign({
-        userId: dbUser._id
+    const user = await User.create({
+        username: req.body.username,
+        password: req.body.password,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+    })
+    
+    const userId = user._id;
+
+    await Account.create({
+        userId,
+        balance: 1 + Math.random()*10000
+    })
+
+    const token = jwt.sign({
+        userId
     }, JWT_SECRET);
 
     res.json({
@@ -54,9 +67,9 @@ router.post('/signup', async (req, res) => {
     })
 });
 
-const signinBody = zod.object({
-    username: zod.string().email(),
-	password: zod.string()
+const signinBody = z.object({
+    username: z.string().email(),
+	password: z.string()
 })
 
 router.post("/signin", async (req, res) => {
@@ -90,9 +103,9 @@ router.post("/signin", async (req, res) => {
 })
 
 const updateBody = z.object({
-    password: z.string.optional,
-    firstName: z.string.optional(),
-    lastName: z.string.optional()
+    password: z.string().optional,
+    firstName: z.string().optional(),
+    lastName: z.string().optional()
 })
 
 router.put("/", authMiddleware, async(req,res)=>{
